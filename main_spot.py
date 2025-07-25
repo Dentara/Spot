@@ -69,9 +69,15 @@ def run():
                 trend = manager.get_trend(close_prices)
 
                 gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
-                decision = ask_gpt(gpt_msg).strip().upper()
-                if decision not in ["BUY", "SELL"]:
+                gpt_raw = ask_gpt(gpt_msg)
+                gpt_decision = gpt_raw.strip().upper()
+
+                send_telegram_message(f"🤖 GPT cavabı ({symbol}): <code>{gpt_raw}</code>")
+
+                if gpt_decision not in ["BUY", "SELL"]:
+                    send_telegram_message(f"📍 Qərar: NO_ACTION ({symbol})")
                     continue
+
 
                 balance = exchange.fetch_balance()
                 free_usdt = balance['free'].get('USDT', 0)
