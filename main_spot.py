@@ -102,7 +102,7 @@ def run():
 
                 # === SELL cooldown
                 if decision == "SELL":
-                    if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 600:
+                    if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 1800:
                         send_telegram_message(f"⏳ {symbol} üçün SELL cooldown aktivdir")
                         continue
 
