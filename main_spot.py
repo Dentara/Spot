@@ -48,7 +48,7 @@ def run():
     while True:
         for symbol in TOKENS:
             try:
-                send_telegram_message(f"🔄 {symbol} üçün analiz başlayır")  # 🧪 SPOT test mesajı
+                send_telegram_message(f"🔄 {symbol} üçün analiz başlayır")
 
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
                 close_prices = [x[4] for x in ohlcv]
@@ -80,3 +80,5 @@ def run():
                 continue
 
         time.sleep(60)
+
+run()
