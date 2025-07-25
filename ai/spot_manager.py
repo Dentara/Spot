@@ -4,28 +4,32 @@ from ai.pattern_recognizer import detect_pattern
 
 class SpotManager:
     def __init__(self):
+        self.ema_fast = 7
+        self.ema_slow = 21
+        self.rsi_period = 14
         self.trend_detector = TrendDetector()
 
-    def get_indicators(self, close_prices: list[float]) -> dict:
+    def get_indicators(self, close_prices):
+        ema7 = calculate_ema(close_prices, self.ema_fast)
+        ema21 = calculate_ema(close_prices, self.ema_slow)
+        rsi = calculate_rsi(close_prices, self.rsi_period)
         return {
-            "ema_fast": calculate_ema(close_prices, 7),
-            "ema_slow": calculate_ema(close_prices, 21),
-            "rsi": calculate_rsi(close_prices, 14)
+            "ema7": ema7,
+            "ema21": ema21,
+            "rsi": rsi
         }
 
-    def get_pattern(self, candles: list[list]) -> str:
-        return detect_pattern(candles)
-
-    def get_trend(self, close_prices: list[float]) -> str:
+    def get_trend(self, close_prices):
         return self.trend_detector.detect_trend(close_prices)
 
-    def create_prompt(self, symbol: str, indicators: dict, trend: str, pattern: str, price: float) -> str:
+    def get_pattern(self, candles):
+        return detect_pattern(candles)
+
+    def create_prompt(self, symbol, indicators, trend, pattern, price):
         return (
-            f"Token: {symbol}\n"
-            f"Texniki analiz məlumatları:\n"
-            f"EMA(7): {indicators['ema_fast']}, EMA(21): {indicators['ema_slow']}\n"
-            f"RSI: {indicators['rsi']}, Trend: {trend}, Pattern: {pattern}\n"
-            f"Cari qiymət: {price} USDT\n"
-            f"Bütün bu məlumatlara əsaslanaraq yalnız bir sözlə cavab ver: BUY, SELL və ya NO_ACTION.\n"
+            f"{symbol} üçün texniki analiz:\n"
+            f"EMA7: {indicators['ema7']}, EMA21: {indicators['ema21']}, RSI: {indicators['rsi']},\n"
+            f"Trend: {trend}, Pattern: {pattern}, Qiymət: {price}\n"
+            f"Yalnız bir cavab ver: BUY, SELL və ya NO_ACTION. Əlavə heç nə yazma."
             f"Əlavə şərh və ya izah vermə. Sadəcə qərarı bildir."
         )
