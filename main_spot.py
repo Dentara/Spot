@@ -4,15 +4,13 @@ import time
 import ccxt
 from datetime import datetime
 
-# === PYTHONPATH düzəlişi
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'ai')))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'utils')))
+# === PATH düzəlişi gələcək səhvlərin qarşısını almaq üçün
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from ai.spot_manager import SpotManager
-from utils.spot_trade_executor import execute_spot_trade
-from ai.gpt_assistant import ask_gpt
-from utils.telegram_notifier import send_telegram_message
+from spot_manager import SpotManager
+from spot_trade_executor import execute_spot_trade
+from gpt_assistant import ask_gpt
+from telegram_notifier import send_telegram_message
 
 # === ENV
 api_key = os.getenv("GATE_API_KEY")
@@ -54,18 +52,7 @@ def run():
                 pattern = manager.get_pattern(ohlcv)
                 trend = manager.get_trend(close_prices)
 
-                gpt_msg = (
-                    f"Token: {symbol}\n"
-                    f"Texniki analiz:\n"
-                    f"EMA7: {indicators['ema_fast']}\n"
-                    f"EMA21: {indicators['ema_slow']}\n"
-                    f"RSI: {indicators['rsi']}\n"
-                    f"Trend: {trend}\n"
-                    f"Pattern: {pattern}\n"
-                    f"Qiymət: {price}\n"
-                    f"Zəhmət olmasa yalnız bir cavab ver: BUY, SELL və ya NO_ACTION. Qərarın texniki əsaslara dayandığını unutma."
-                )
-
+                gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
                 decision = ask_gpt(gpt_msg).strip().upper()
 
                 if decision not in ["BUY", "SELL"]:
