@@ -31,9 +31,8 @@ exchange = ccxt.gate({
 
 # === TOKENLƏR
 TOKENS = [
-    "TON/USDT", "DBC/USDT", "ADA/USDT", "USDT/USDT", "DENT/USDT",
-    "WIFI/USDT", "CFG/USDT", "LTO/USDT", "GT/USDT", "KAS/USDT",
-    "POINT/USDT", "XRD/USDT"
+    "TON/USDT", "DBC/USDT", "ADA/USDT", "DENT/USDT", "WIFI/USDT",
+    "CFG/USDT", "LTO/USDT", "GT/USDT", "KAS/USDT", "XRD/USDT"
 ]
 manager = SpotManager()
 
