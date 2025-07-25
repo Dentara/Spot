@@ -4,13 +4,16 @@ import time
 import ccxt
 from datetime import datetime
 
-# === PATH düzəlişi gələcək səhvlərin qarşısını almaq üçün
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# === PYTHONPATH düzəlişi (qovluqlara uyğunlaşdırılmış)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
+sys.path.append(os.path.join(BASE_DIR, "ai"))
+sys.path.append(os.path.join(BASE_DIR, "ulits"))
 
-from spot_manager import SpotManager
-from spot_trade_executor import execute_spot_trade
-from gpt_assistant import ask_gpt
-from telegram_notifier import send_telegram_message
+from ai.spot_manager import SpotManager
+from ulits.spot_trade_executor import execute_spot_trade
+from ai.gpt_assistant import ask_gpt
+from ulits.telegram_notifier import send_telegram_message
 
 # === ENV
 api_key = os.getenv("GATE_API_KEY")
