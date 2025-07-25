@@ -27,7 +27,6 @@ TOKENS = [
 manager = SpotManager()
 last_sold_amounts = {}
 last_sold_timestamps = {}
-last_buy_timestamps = {}
 
 TRADE_LOG_DIR = "logs"
 os.makedirs(TRADE_LOG_DIR, exist_ok=True)
@@ -55,7 +54,7 @@ def log_trade(symbol, side, amount, price):
         send_telegram_message(f"⚠️ Log yazıla bilmədi ({symbol}): {e}")
 
 def run():
-    send_telegram_message("✅ SPOT BOT AKTİVDİR – hər iki əməliyyatda cooldown ilə işə başladı")
+    send_telegram_message("✅ SPOT BOT AKTİVDİR – satış üçün cooldown aktiv, alış azad şəkildə")
 
     while True:
         for symbol in TOKENS:
@@ -110,12 +109,8 @@ def run():
                         log_trade(symbol, "SELL", sell_amount, price)
                         continue
 
-                # === BUY cooldown
+                # === BUY (no cooldown)
                 if decision == "BUY":
-                    if symbol in last_buy_timestamps and now - last_buy_timestamps[symbol] < 600:
-                        send_telegram_message(f"⏳ {symbol} üçün BUY cooldown aktivdir")
-                        continue
-
                     if symbol in last_sold_amounts:
                         buy_usdt = last_sold_amounts[symbol]["usdt"]
                         prev_token_qty = last_sold_amounts[symbol]["token"]
@@ -146,7 +141,6 @@ def run():
                     order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)
                     send_telegram_message(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
                     log_trade(symbol, "BUY", buy_amount, price)
-                    last_buy_timestamps[symbol] = now
                     continue
 
             except Exception as e:
