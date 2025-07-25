@@ -1,4 +1,4 @@
-from utils.indicators import calculate_ema, calculate_rsi
+from ulits.indicators import calculate_ema, calculate_rsi
 from ai.trend_detector import TrendDetector
 from ai.pattern_recognizer import detect_pattern
 
