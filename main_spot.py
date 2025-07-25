@@ -43,10 +43,13 @@ def log(msg):
 
 def run():
     log("🚀 SPOT BOT BAŞLADI")
+    send_telegram_message("✅ SPOT BOT AKTİVDİR – işləməyə başladı")
 
     while True:
         for symbol in TOKENS:
             try:
+                send_telegram_message(f"🔄 {symbol} üçün analiz başlayır")  # 🧪 SPOT test mesajı
+
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
                 close_prices = [x[4] for x in ohlcv]
                 price = close_prices[-1]
@@ -73,8 +76,7 @@ def run():
 
             except Exception as e:
                 log(f"❌ Xəta: {symbol} | {e}")
+                send_telegram_message(f"⚠️ Xəta: {symbol} üçün analizdə problem: {e}")
                 continue
 
         time.sleep(60)
-
-run()
