@@ -92,14 +92,14 @@ def run():
 
                 now = time.time()
 
-                # === SELL bloklaması
+                # === Ağıllı SELL bloklaması (ƏLAVƏ EDİLİB)
                 if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
-                    send_telegram_message(f"⛔ {symbol}: Gələcəkdə artım ehtimalı var, SATIŞ BLOKLANDI")
+                    send_telegram_message(f"⛔ {symbol}: 1h və 4h artım trendindədir, SATIŞ BLOKLANDI")
                     continue
 
-                # === BUY bloklaması
-                if decision == "BUY" and (trend_1h == "sell" or trend_4h == "sell"):
-                    send_telegram_message(f"⚠️ {symbol}: Gələcəkdə düşüş ehtimalı var, ALIŞ BLOKLANDI")
+                # === Ağıllı BUY bloklaması (ƏLAVƏ EDİLİB)
+                if decision == "BUY" and (trend_1h == "sell" and trend_4h == "sell"):
+                    send_telegram_message(f"⚠️ {symbol}: 1h və 4h düşüş trendindədir, ALIŞ BLOKLANDI")
                     continue
 
                 # === SELL cooldown
