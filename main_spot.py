@@ -7,6 +7,7 @@ from ai.spot_manager import SpotManager
 from ulits.spot_trade_executor import execute_spot_trade
 from ai.gpt_assistant import ask_gpt
 from ulits.telegram_notifier import send_telegram_message
+from ai.ta_engine import analyze_technicals
 
 # === GATE.IO bağlantısı
 api_key = os.getenv("GATE_API_KEY")
@@ -18,7 +19,6 @@ exchange = ccxt.gate({
     'enableRateLimit': True
 })
 
-# === Token siyahısı
 TOKENS = [
     "TON/USDT", "DBC/USDT", "DENT/USDT", "WIFI/USDT", "ADA/USDT",
     "CFG/USDT", "LTO/USDT", "GT/USDT", "KAS/USDT", "XRD/USDT"
@@ -54,7 +54,7 @@ def log_trade(symbol, side, amount, price):
         send_telegram_message(f"⚠️ Log yazıla bilmədi ({symbol}): {e}")
 
 def run():
-    send_telegram_message("✅ SPOT BOT AKTİVDİR – satış üçün cooldown aktiv, alış azad şəkildə")
+    send_telegram_message("✅ SPOT BOT AKTİVDİR – 1m, 1h, 4h analiz qoruması ilə")
 
     while True:
         for symbol in TOKENS:
@@ -62,11 +62,17 @@ def run():
                 send_telegram_message(f"🔄 {symbol} üçün analiz başlayır")
 
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
+                ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=30)
+                ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
+
                 close_prices = [x[4] for x in ohlcv]
                 price = close_prices[-1]
                 indicators = manager.get_indicators(close_prices)
                 pattern = manager.get_pattern(ohlcv)
                 trend = manager.get_trend(close_prices)
+
+                trend_1h = analyze_technicals(ohlcv_1h)
+                trend_4h = analyze_technicals(ohlcv_4h)
 
                 gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
                 gpt_raw = ask_gpt(gpt_msg)
@@ -85,6 +91,14 @@ def run():
                 token_balance = balance['free'].get(token_name, 0)
 
                 now = time.time()
+
+                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
+                    send_telegram_message(f"⛔ {symbol}: Gələcəkdə artım ehtimalı var, SATIŞ BLOKLANDI")
+                    continue
+
+                if decision == "BUY" and (trend_1h == "sell" or trend_4h == "sell"):
+                    send_telegram_message(f"⚠️ {symbol}: Gələcəkdə düşüş ehtimalı var, ALIŞ BLOKLANDI")
+                    continue
 
                 # === SELL cooldown
                 if decision == "SELL":
@@ -109,7 +123,7 @@ def run():
                         log_trade(symbol, "SELL", sell_amount, price)
                         continue
 
-                # === BUY (no cooldown)
+                # === BUY
                 if decision == "BUY":
                     if symbol in last_sold_amounts:
                         buy_usdt = last_sold_amounts[symbol]["usdt"]
