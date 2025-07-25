@@ -54,7 +54,7 @@ def log_trade(symbol, side, amount, price):
         send_telegram_message(f"⚠️ Log yazıla bilmədi ({symbol}): {e}")
 
 def run():
-    send_telegram_message("✅ SPOT BOT AKTİVDİR – Plan üzrə ticarətə başlayır")
+    send_telegram_message("✅ SPOT BOT AKTİVDİR – maksimum qoruma ilə işə başladı")
 
     while True:
         for symbol in TOKENS:
@@ -71,7 +71,7 @@ def run():
                 gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
                 gpt_raw = ask_gpt(gpt_msg)
                 gpt_decision = gpt_raw.strip().upper()
-                decision = gpt_decision  # ✅ SƏHVLƏRİ HƏLL EDİR
+                decision = gpt_decision
 
                 send_telegram_message(f"🤖 GPT cavabı ({symbol}): <code>{gpt_raw}</code>")
 
@@ -86,7 +86,7 @@ def run():
 
                 now = time.time()
 
-                # === SELL
+                # === SELL əməliyyatı
                 if decision == "SELL" and token_balance >= 1:
                     sell_amount = round(token_balance * 0.05, 2)
                     if sell_amount < 1:
@@ -104,7 +104,7 @@ def run():
                     log_trade(symbol, "SELL", sell_amount, price)
                     continue
 
-                # === BUY
+                # === BUY əməliyyatı
                 if decision == "BUY":
                     if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 600:
                         send_telegram_message(f"⏳ {symbol} üçün cooldown aktivdir")
@@ -113,20 +113,35 @@ def run():
                     if symbol in last_sold_amounts:
                         buy_usdt = last_sold_amounts[symbol]["usdt"]
                         prev_token_qty = last_sold_amounts[symbol]["token"]
+                        prev_price = last_sold_amounts[symbol]["price"]
                     else:
                         buy_usdt = free_usdt * 0.05
                         prev_token_qty = 0
+                        prev_price = price
 
                     if buy_usdt < 1:
                         continue
 
                     buy_amount = round(buy_usdt / price, 2)
+
+                    # 🔒 Say artımı yoxlaması
                     if prev_token_qty > 0 and buy_amount <= prev_token_qty:
                         send_telegram_message(f"⚠️ {symbol}: Yeni alınan say əvvəlkindən azdır ({buy_amount} ≤ {prev_token_qty})")
                         continue
 
-                    order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)  # ✅ Gate.io tələb edir
-                    send_telegram_message(f"📈 BUY: {symbol} | {buy_amount}")
+                    # 🔒 Qiymət müqayisəsi
+                    if prev_price > 0 and price >= prev_price:
+                        send_telegram_message(f"⚠️ {symbol}: Qiymət əvvəlkindən ucuz deyil ({price:.6f} ≥ {prev_price:.6f})")
+                        continue
+
+                    # 🔒 2% artım filtri
+                    percent_gain = ((buy_amount - prev_token_qty) / prev_token_qty) * 100 if prev_token_qty > 0 else 100
+                    if percent_gain < 2:
+                        send_telegram_message(f"⚠️ {symbol}: Say fərqi çox azdır ({percent_gain:.2f}%)")
+                        continue
+
+                    order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)
+                    send_telegram_message(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
                     log_trade(symbol, "BUY", buy_amount, price)
                     continue
 
