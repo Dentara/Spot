@@ -6,6 +6,9 @@ from ai.spot_manager import SpotManager
 from utils.spot_trade_executor import execute_spot_trade
 from ai.gpt_assistant import ask_gpt
 from utils.telegram_notifier import send_telegram_message
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # === ENV
 api_key = os.getenv("GATE_API_KEY")
