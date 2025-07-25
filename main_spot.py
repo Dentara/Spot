@@ -71,13 +71,13 @@ def run():
                 gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
                 gpt_raw = ask_gpt(gpt_msg)
                 gpt_decision = gpt_raw.strip().upper()
+                decision = gpt_decision  # ✅ SƏHVLƏRİ HƏLL EDİR
 
                 send_telegram_message(f"🤖 GPT cavabı ({symbol}): <code>{gpt_raw}</code>")
-                decision = gpt_decision
-                if gpt_decision not in ["BUY", "SELL"]:
+
+                if decision not in ["BUY", "SELL"]:
                     send_telegram_message(f"📍 Qərar: NO_ACTION ({symbol})")
                     continue
-
 
                 balance = exchange.fetch_balance()
                 free_usdt = balance['free'].get('USDT', 0)
@@ -92,7 +92,7 @@ def run():
                     if sell_amount < 1:
                         continue
 
-                    order = exchange.create_market_sell_order(symbol, sell_amount)
+                    order = exchange.create_order(symbol, 'market', 'sell', sell_amount)
                     usdt_gained = sell_amount * price
                     last_sold_amounts[symbol] = {
                         "usdt": usdt_gained,
@@ -106,7 +106,6 @@ def run():
 
                 # === BUY
                 if decision == "BUY":
-                    # Cooldown: Ən azı 600 saniyə (10 dəq) keçməlidir
                     if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 600:
                         send_telegram_message(f"⏳ {symbol} üçün cooldown aktivdir")
                         continue
@@ -126,7 +125,7 @@ def run():
                         send_telegram_message(f"⚠️ {symbol}: Yeni alınan say əvvəlkindən azdır ({buy_amount} ≤ {prev_token_qty})")
                         continue
 
-                    order = exchange.create_market_buy_order(symbol, buy_amount)
+                    order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)  # ✅ Gate.io tələb edir
                     send_telegram_message(f"📈 BUY: {symbol} | {buy_amount}")
                     log_trade(symbol, "BUY", buy_amount, price)
                     continue
