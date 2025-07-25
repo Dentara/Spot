@@ -4,3 +4,4 @@ requests
 python-dotenv
 numpy
 pandas
+openai==0.28
