@@ -73,7 +73,7 @@ def run():
                 gpt_decision = gpt_raw.strip().upper()
 
                 send_telegram_message(f"🤖 GPT cavabı ({symbol}): <code>{gpt_raw}</code>")
-
+                decision = gpt_decision
                 if gpt_decision not in ["BUY", "SELL"]:
                     send_telegram_message(f"📍 Qərar: NO_ACTION ({symbol})")
                     continue
