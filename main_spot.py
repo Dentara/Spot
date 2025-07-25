@@ -54,7 +54,7 @@ def log_trade(symbol, side, amount, price):
         send_telegram_message(f"⚠️ Log yazıla bilmədi ({symbol}): {e}")
 
 def run():
-    send_telegram_message("✅ SPOT BOT AKTİVDİR – 1m, 1h, 4h analiz qoruması ilə")
+    send_telegram_message("✅ SPOT BOT AKTİVDİR – 1h/4h trend artarsa 2% şərti deaktiv olunur")
 
     while True:
         for symbol in TOKENS:
@@ -92,10 +92,12 @@ def run():
 
                 now = time.time()
 
+                # === SELL bloklaması
                 if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
                     send_telegram_message(f"⛔ {symbol}: Gələcəkdə artım ehtimalı var, SATIŞ BLOKLANDI")
                     continue
 
+                # === BUY bloklaması
                 if decision == "BUY" and (trend_1h == "sell" or trend_4h == "sell"):
                     send_telegram_message(f"⚠️ {symbol}: Gələcəkdə düşüş ehtimalı var, ALIŞ BLOKLANDI")
                     continue
@@ -147,8 +149,11 @@ def run():
                         send_telegram_message(f"⚠️ {symbol}: Qiymət əvvəlkindən ucuz deyil ({price:.6f} ≥ {prev_price:.6f})")
                         continue
 
+                    # 🔓 2% fərq şərti yalnız trend uyğun deyilsə tətbiq olunur
+                    skip_gain_check = trend_1h == "buy" or trend_4h == "buy"
+
                     percent_gain = ((buy_amount - prev_token_qty) / prev_token_qty) * 100 if prev_token_qty > 0 else 100
-                    if percent_gain < 2:
+                    if not skip_gain_check and percent_gain < 2:
                         send_telegram_message(f"⚠️ {symbol}: Say fərqi çox azdır ({percent_gain:.2f}%)")
                         continue
 
