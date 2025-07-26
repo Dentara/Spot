@@ -11,6 +11,7 @@ from ai.ta_engine import analyze_technicals
 from ai.reinforcement_tracker import Tracker
 from ai.sentiment_analyzer import get_sentiment_score
 from ai.whale_detector import get_whale_alerts
+from ai.orderbook_analyzer import analyze_order_book_depth  # ✅ Order Book Analiz
 
 # === Telegram səviyyə kontrolu
 DEBUG_MODE = False
@@ -68,11 +69,20 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – reinforcement + sentiment + whale analiz ilə", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – OrderBook + Sentiment + Reinforcement", level="info")
 
     while True:
         for symbol in TOKENS:
             try:
+                # === Order Book analiz (əvvəlcədən)
+                order_book = exchange.fetch_order_book(symbol)
+                depth_status = analyze_order_book_depth(order_book)
+
+                if depth_status != "ok":
+                    notify(f"🚫 {symbol}: Order Book zəif ({depth_status}) → əməliyyat dayandırıldı", level="info")
+                    continue
+
+                # === Candle məlumatları
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
                 ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=30)
                 ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
