@@ -5,13 +5,13 @@ import json
 from datetime import datetime
 from ai.spot_manager import SpotManager
 from ulits.spot_trade_executor import execute_spot_trade
-from ai.gpt_assistant import ask_gpt
+from ai.gpt_rich_prompt import ask_gpt_rich  # ✅ yenilənmiş GPT
 from ulits.telegram_notifier import send_telegram_message
 from ai.ta_engine import analyze_technicals
 from ai.reinforcement_tracker import Tracker
 from ai.sentiment_analyzer import get_sentiment_score
 from ai.whale_detector import get_whale_alerts
-from ai.orderbook_analyzer import analyze_order_book_depth  # ✅ Order Book Analiz
+from ai.orderbook_analyzer import analyze_order_book_depth
 
 # === Telegram səviyyə kontrolu
 DEBUG_MODE = False
@@ -69,12 +69,11 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – OrderBook + Sentiment + Reinforcement", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – GPT əsaslı qərar aktivdir", level="info")
 
     while True:
         for symbol in TOKENS:
             try:
-                # === Order Book analiz (əvvəlcədən)
                 order_book = exchange.fetch_order_book(symbol)
                 depth_status = analyze_order_book_depth(order_book)
 
@@ -82,7 +81,6 @@ def run():
                     notify(f"🚫 {symbol}: Order Book zəif ({depth_status}) → əməliyyat dayandırıldı", level="info")
                     continue
 
-                # === Candle məlumatları
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
                 ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=30)
                 ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
@@ -97,17 +95,19 @@ def run():
                 trend_4h = analyze_technicals(ohlcv_4h)
 
                 gpt_msg = manager.create_prompt(symbol, indicators, trend, pattern, price)
-                gpt_raw = ask_gpt(gpt_msg)
-                gpt_decision = gpt_raw.strip().upper()
+                gpt_result = ask_gpt_rich(gpt_msg)
+                gpt_decision = gpt_result["decision"]
+                gpt_reason = gpt_result["explanation"]
                 decision = gpt_decision
+
+                notify(f"🤖 GPT qərarı: {gpt_decision}\n{gpt_reason}", level="debug")
 
                 token_name = symbol.split('/')[0]
 
-                # === Sentiment və Whale filtrləri
                 sentiment = get_sentiment_score(token_name)
                 whale_active = get_whale_alerts(token_name)
                 if sentiment == "bearish" or whale_active:
-                    notify(f"🚫 {symbol}: Sentiment ({sentiment}) və ya Whale aktivliyi səbəbilə əməliyyat BLOKLANDI", level="info")
+                    notify(f"🚫 {symbol}: Sentiment ({sentiment}) və ya Whale aktivliyi səbəbilə BLOKLANDI", level="info")
                     continue
 
                 if decision not in ["BUY", "SELL"]:
