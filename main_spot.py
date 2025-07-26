@@ -2,18 +2,18 @@ import os
 import time
 import ccxt
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from ai.spot_manager import SpotManager
 from ulits.spot_trade_executor import execute_spot_trade
-from ai.gpt_rich_prompt import ask_gpt_rich  # ✅ yenilənmiş GPT
+from ai.gpt_rich_prompt import ask_gpt_rich
 from ulits.telegram_notifier import send_telegram_message
 from ai.ta_engine import analyze_technicals
 from ai.reinforcement_tracker import Tracker
 from ai.sentiment_analyzer import get_sentiment_score
 from ai.whale_detector import get_whale_alerts
 from ai.orderbook_analyzer import analyze_order_book_depth
+from ai.correlation_engine import get_related_tokens  # ✅ Korelyasiya
 
-# === Telegram səviyyə kontrolu
 DEBUG_MODE = False
 
 def notify(msg: str, level: str = "info"):
@@ -23,7 +23,6 @@ def notify(msg: str, level: str = "info"):
         return
     send_telegram_message(msg)
 
-# === GATE.IO bağlantısı
 api_key = os.getenv("GATE_API_KEY")
 api_secret = os.getenv("GATE_API_SECRET")
 
@@ -42,6 +41,7 @@ manager = SpotManager()
 tracker = Tracker()
 last_sold_amounts = {}
 last_sold_timestamps = {}
+recent_decisions = {}
 
 TRADE_LOG_DIR = "logs"
 os.makedirs(TRADE_LOG_DIR, exist_ok=True)
@@ -50,7 +50,7 @@ def log_trade(symbol, side, amount, price):
     symbol_name = symbol.replace("/", "_")
     path = os.path.join(TRADE_LOG_DIR, f"{symbol_name}.json")
     entry = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "side": side,
         "amount": amount,
         "price": price
@@ -69,16 +69,15 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – GPT əsaslı qərar aktivdir", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – Korelyasiya + GPT + Risk filtrləri ilə", level="info")
 
     while True:
         for symbol in TOKENS:
             try:
                 order_book = exchange.fetch_order_book(symbol)
                 depth_status = analyze_order_book_depth(order_book)
-
                 if depth_status != "ok":
-                    notify(f"🚫 {symbol}: Order Book zəif ({depth_status}) → əməliyyat dayandırıldı", level="info")
+                    notify(f"🚫 {symbol}: Order Book zəif ({depth_status})", level="info")
                     continue
 
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
@@ -110,6 +109,20 @@ def run():
                     notify(f"🚫 {symbol}: Sentiment ({sentiment}) və ya Whale aktivliyi səbəbilə BLOKLANDI", level="info")
                     continue
 
+                # === Korelyasiya ilə düzəliş
+                related = get_related_tokens(symbol)
+                related_buy = any(recent_decisions.get(t) == "BUY" for t in related)
+                related_sell = any(recent_decisions.get(t) == "SELL" for t in related)
+
+                if decision == "NO_ACTION" and related_buy:
+                    decision = "BUY"
+                    notify(f"🔄 {symbol}: NO_ACTION idi, bağlı token BUY verdiyi üçün BUY edilir", level="info")
+                elif decision == "NO_ACTION" and related_sell:
+                    decision = "SELL"
+                    notify(f"🔄 {symbol}: NO_ACTION idi, bağlı token SELL verdiyi üçün SELL edilir", level="info")
+
+                recent_decisions[symbol] = decision
+
                 if decision not in ["BUY", "SELL"]:
                     notify(f"📍 Qərar: NO_ACTION ({symbol})", level="debug")
                     continue
@@ -129,7 +142,7 @@ def run():
 
                 if decision == "SELL":
                     if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 1800:
-                        notify(f"⏳ {symbol} üçün SELL cooldown aktivdir", level="silent")
+                        notify(f"⏳ {symbol}: SELL cooldown aktivdir", level="silent")
                         continue
 
                     if token_balance >= 1:
