@@ -1,0 +1,16 @@
+{
+  "TON/USDT": ["KAS/USDT", "GT/USDT"],
+  "KAS/USDT": ["TON/USDT", "GT/USDT"],
+  "GT/USDT": ["TON/USDT", "KAS/USDT"],
+
+  "DBC/USDT": ["DENT/USDT", "CFG/USDT"],
+  "DENT/USDT": ["DBC/USDT", "CFG/USDT"],
+  "CFG/USDT": ["DBC/USDT", "DENT/USDT"],
+
+  "WIFI/USDT": ["XRD/USDT", "XRP/USDT"],
+  "XRD/USDT": ["WIFI/USDT", "XRP/USDT"],
+  "XRP/USDT": ["WIFI/USDT", "XRD/USDT"],
+
+  "ADA/USDT": ["XRP/USDT", "GT/USDT"],
+  "LTO/USDT": ["DBC/USDT", "CFG/USDT"]
+}
