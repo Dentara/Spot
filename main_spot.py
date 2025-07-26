@@ -12,7 +12,8 @@ from ai.reinforcement_tracker import Tracker
 from ai.sentiment_analyzer import get_sentiment_score
 from ai.whale_detector import get_whale_alerts
 from ai.orderbook_analyzer import analyze_order_book_depth
-from ai.correlation_engine import get_related_tokens  # ✅ Korelyasiya
+from ai.correlation_engine import get_related_tokens
+from ai.performance_logger import update_daily_stats  # ✅ STATİSTİKA
 
 DEBUG_MODE = False
 
@@ -69,7 +70,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – Korelyasiya + GPT + Risk filtrləri ilə", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – Tam 6 mərhələli sistem ilə", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -109,7 +110,6 @@ def run():
                     notify(f"🚫 {symbol}: Sentiment ({sentiment}) və ya Whale aktivliyi səbəbilə BLOKLANDI", level="info")
                     continue
 
-                # === Korelyasiya ilə düzəliş
                 related = get_related_tokens(symbol)
                 related_buy = any(recent_decisions.get(t) == "BUY" for t in related)
                 related_sell = any(recent_decisions.get(t) == "SELL" for t in related)
@@ -161,6 +161,11 @@ def run():
                         tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)
                         notify(f"📉 SELL: {symbol} | {sell_amount}")
                         log_trade(symbol, "SELL", sell_amount, price)
+
+                        if 'info' in order and 'profit' in order['info']:
+                            pnl = float(order['info']['profit'])
+                            success = pnl >= 0
+                            update_daily_stats(symbol, "SELL", success, pnl)
                         continue
 
                 if decision == "BUY":
@@ -197,6 +202,11 @@ def run():
                     tracker.update(symbol, "BUY", prev_token_qty, buy_amount)
                     notify(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
                     log_trade(symbol, "BUY", buy_amount, price)
+
+                    if 'info' in order and 'profit' in order['info']:
+                        pnl = float(order['info']['profit'])
+                        success = pnl >= 0
+                        update_daily_stats(symbol, "BUY", success, pnl)
                     continue
 
             except Exception as e:
