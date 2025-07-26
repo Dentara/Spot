@@ -8,7 +8,9 @@ from ulits.spot_trade_executor import execute_spot_trade
 from ai.gpt_assistant import ask_gpt
 from ulits.telegram_notifier import send_telegram_message
 from ai.ta_engine import analyze_technicals
-from ai.reinforcement_tracker import Tracker  # ✅ yeni modul daxil edildi
+from ai.reinforcement_tracker import Tracker
+from ai.sentiment_analyzer import get_sentiment_score
+from ai.whale_detector import get_whale_alerts
 
 # === Telegram səviyyə kontrolu
 DEBUG_MODE = False
@@ -36,7 +38,7 @@ TOKENS = [
 ]
 
 manager = SpotManager()
-tracker = Tracker()  # ✅ reinforcement izləyicisi yaradılır
+tracker = Tracker()
 last_sold_amounts = {}
 last_sold_timestamps = {}
 
@@ -66,7 +68,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – reinforcement tracker aktivdir", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – reinforcement + sentiment + whale analiz ilə", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -89,13 +91,21 @@ def run():
                 gpt_decision = gpt_raw.strip().upper()
                 decision = gpt_decision
 
+                token_name = symbol.split('/')[0]
+
+                # === Sentiment və Whale filtrləri
+                sentiment = get_sentiment_score(token_name)
+                whale_active = get_whale_alerts(token_name)
+                if sentiment == "bearish" or whale_active:
+                    notify(f"🚫 {symbol}: Sentiment ({sentiment}) və ya Whale aktivliyi səbəbilə əməliyyat BLOKLANDI", level="info")
+                    continue
+
                 if decision not in ["BUY", "SELL"]:
                     notify(f"📍 Qərar: NO_ACTION ({symbol})", level="debug")
                     continue
 
                 balance = exchange.fetch_balance()
                 free_usdt = balance['free'].get('USDT', 0)
-                token_name = symbol.split('/')[0]
                 token_balance = balance['free'].get(token_name, 0)
                 now = time.time()
 
@@ -107,7 +117,6 @@ def run():
                     notify(f"⚠️ {symbol}: 1h və 4h düşüş trendindədir, ALIŞ BLOKLANDI")
                     continue
 
-                # === SELL cooldown
                 if decision == "SELL":
                     if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 1800:
                         notify(f"⏳ {symbol} üçün SELL cooldown aktivdir", level="silent")
@@ -126,12 +135,11 @@ def run():
                             "price": price
                         }
                         last_sold_timestamps[symbol] = now
-                        tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)  # ✅ izləmə
+                        tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)
                         notify(f"📉 SELL: {symbol} | {sell_amount}")
                         log_trade(symbol, "SELL", sell_amount, price)
                         continue
 
-                # === BUY
                 if decision == "BUY":
                     if symbol in last_sold_amounts:
                         buy_usdt = last_sold_amounts[symbol]["usdt"]
@@ -163,7 +171,7 @@ def run():
                         continue
 
                     order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)
-                    tracker.update(symbol, "BUY", prev_token_qty, buy_amount)  # ✅ izləmə
+                    tracker.update(symbol, "BUY", prev_token_qty, buy_amount)
                     notify(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
                     log_trade(symbol, "BUY", buy_amount, price)
                     continue
