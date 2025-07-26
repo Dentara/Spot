@@ -8,6 +8,7 @@ from ulits.spot_trade_executor import execute_spot_trade
 from ai.gpt_assistant import ask_gpt
 from ulits.telegram_notifier import send_telegram_message
 from ai.ta_engine import analyze_technicals
+from ai.reinforcement_tracker import Tracker  # ✅ yeni modul daxil edildi
 
 # === Telegram səviyyə kontrolu
 DEBUG_MODE = False
@@ -35,6 +36,7 @@ TOKENS = [
 ]
 
 manager = SpotManager()
+tracker = Tracker()  # ✅ reinforcement izləyicisi yaradılır
 last_sold_amounts = {}
 last_sold_timestamps = {}
 
@@ -64,7 +66,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – 1h/4h trend artarsa 2% şərti deaktiv olunur", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – reinforcement tracker aktivdir", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -97,12 +99,10 @@ def run():
                 token_balance = balance['free'].get(token_name, 0)
                 now = time.time()
 
-                # === SELL bloklaması (artım trendi varsa)
                 if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
                     notify(f"⛔ {symbol}: 1h və 4h artım trendindədir, SATIŞ BLOKLANDI")
                     continue
 
-                # === BUY bloklaması (düşüş trendi varsa)
                 if decision == "BUY" and (trend_1h == "sell" and trend_4h == "sell"):
                     notify(f"⚠️ {symbol}: 1h və 4h düşüş trendindədir, ALIŞ BLOKLANDI")
                     continue
@@ -126,6 +126,7 @@ def run():
                             "price": price
                         }
                         last_sold_timestamps[symbol] = now
+                        tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)  # ✅ izləmə
                         notify(f"📉 SELL: {symbol} | {sell_amount}")
                         log_trade(symbol, "SELL", sell_amount, price)
                         continue
@@ -162,6 +163,7 @@ def run():
                         continue
 
                     order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)
+                    tracker.update(symbol, "BUY", prev_token_qty, buy_amount)  # ✅ izləmə
                     notify(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
                     log_trade(symbol, "BUY", buy_amount, price)
                     continue
