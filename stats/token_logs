@@ -1,0 +1,10 @@
+[
+  {
+    "timestamp": "2025-07-26T14:30:00Z",
+    "side": "BUY",
+    "amount": 120,
+    "price": 0.55,
+    "success": true,
+    "pnl": 4.1
+  }
+]
