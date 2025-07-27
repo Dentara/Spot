@@ -40,7 +40,7 @@ TOKENS = [
 
 manager = SpotManager()
 tracker = Tracker()
-last_sold_amounts = {}
+last_buy_prices = {}
 last_sold_timestamps = {}
 recent_decisions = {}
 
@@ -70,7 +70,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – Tam 6 mərhələli sistem + sərbəst alış ilə", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – Ağıllı alış-satış strategiyası ilə", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -131,80 +131,54 @@ def run():
                 free_usdt = balance['free'].get('USDT', 0)
                 token_balance = balance['free'].get(token_name, 0)
                 now = time.time()
-                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
-                    notify(f"⛔ {symbol}: 1h və 4h artım trendindədir, SATIŞ BLOKLANDI")
-                    continue
-
-                if decision == "BUY" and (trend_1h == "sell" and trend_4h == "sell"):
-                    notify(f"⚠️ {symbol}: 1h və 4h düşüş trendindədir, ALIŞ BLOKLANDI")
-                    continue
-
                 if decision == "SELL":
-                    if symbol in last_sold_timestamps and now - last_sold_timestamps[symbol] < 1800:
-                        notify(f"⏳ {symbol}: SELL cooldown aktivdir", level="silent")
+                    if token_balance < 1:
+                        notify(f"⚠️ {symbol}: Token balansı çox azdır, satış keçildi", level="info")
                         continue
 
-                    if token_balance >= 1:
-                        sell_amount = round(token_balance * 0.05, 2)
-                        if sell_amount < 1:
-                            continue
-
-                        order = exchange.create_order(symbol, 'market', 'sell', sell_amount)
-                        usdt_gained = sell_amount * price
-                        last_sold_amounts[symbol] = {
-                            "usdt": usdt_gained,
-                            "token": sell_amount,
-                            "price": price
-                        }
-                        last_sold_timestamps[symbol] = now
-                        tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)
-                        notify(f"📉 SELL: {symbol} | {sell_amount}")
-                        log_trade(symbol, "SELL", sell_amount, price)
-
-                        if 'info' in order and 'profit' in order['info']:
-                            pnl = float(order['info']['profit'])
-                            success = pnl >= 0
-                            update_daily_stats(symbol, "SELL", success, pnl)
+                    if trend_1h != "buy" or trend_4h != "buy":
+                        notify(f"⛔ {symbol}: Trend artımda deyil, satış uyğun deyil", level="info")
                         continue
+
+                    last_buy_price = last_buy_prices.get(symbol, 0)
+                    profit_threshold = 0.02  # 2% mənfəət
+
+                    if last_buy_price == 0 or price < last_buy_price * (1 + profit_threshold):
+                        notify(f"ℹ️ {symbol}: Satış üçün kifayət qədər mənfəət yoxdur ({price:.4f} < {last_buy_price * (1 + profit_threshold):.4f})")
+                        continue
+
+                    sell_amount = round(token_balance * 0.05, 2)
+                    if sell_amount < 1:
+                        continue
+
+                    order = exchange.create_order(symbol, 'market', 'sell', sell_amount)
+                    last_sold_timestamps[symbol] = now
+                    tracker.update(symbol, "SELL", token_balance, token_balance - sell_amount)
+                    notify(f"📉 SELL: {symbol} | {sell_amount}")
+                    log_trade(symbol, "SELL", sell_amount, price)
+
+                    if 'info' in order and 'profit' in order['info']:
+                        pnl = float(order['info']['profit'])
+                        success = pnl >= 0
+                        update_daily_stats(symbol, "SELL", success, pnl)
+                    continue
 
                 if decision == "BUY":
-                    if symbol in last_sold_amounts:
-                        buy_usdt = last_sold_amounts[symbol]["usdt"]
-                        prev_token_qty = last_sold_amounts[symbol]["token"]
-                        prev_price = last_sold_amounts[symbol]["price"]
-                    else:
-                        buy_usdt = free_usdt * 0.05
-                        prev_token_qty = 0
-                        prev_price = price
-
+                    buy_usdt = free_usdt * 0.15  # dinamik alış
                     if trend_1h == "buy" and trend_4h == "buy":
-                        buy_usdt = free_usdt * 0.25
-                        notify(f"🚀 {symbol}: 1h və 4h trend 'BUY' → sərbəst alış aktivdir: {buy_usdt:.2f} USDT", level="info")
+                        buy_usdt = free_usdt * 0.3
+                        notify(f"🚀 {symbol}: Güclü trend → alış sərbəstləşdirildi ({buy_usdt:.2f} USDT)", level="info")
 
                     if buy_usdt < 3:
-                        notify(f"⚠️ {symbol}: Alış üçün vəsait çox azdır ({buy_usdt:.2f} USDT < 3 USDT)", level="info")
+                        notify(f"⚠️ {symbol}: Alış üçün vəsait çox azdır ({buy_usdt:.2f} USDT < 3)", level="info")
                         continue
 
                     buy_amount = round(buy_usdt / price, 2)
-
-                    if prev_token_qty > 0 and buy_amount <= prev_token_qty:
-                        notify(f"⚠️ {symbol}: Yeni alınan say əvvəlkindən azdır ({buy_amount} ≤ {prev_token_qty})")
-                        continue
-
-                    if prev_price > 0 and price >= prev_price:
-                        notify(f"⚠️ {symbol}: Qiymət əvvəlkindən ucuz deyil ({price:.6f} ≥ {prev_price:.6f})")
-                        continue
-
-                    skip_gain_check = trend_1h == "buy" or trend_4h == "buy"
-                    percent_gain = ((buy_amount - prev_token_qty) / prev_token_qty) * 100 if prev_token_qty > 0 else 100
-
-                    if not skip_gain_check and percent_gain < 2:
-                        notify(f"⚠️ {symbol}: Say fərqi çox azdır ({percent_gain:.2f}%)")
-                        continue
-
                     order = exchange.create_order(symbol, 'market', 'buy', buy_amount, price)
-                    tracker.update(symbol, "BUY", prev_token_qty, buy_amount)
-                    notify(f"📈 BUY: {symbol} | {buy_amount} ({percent_gain:.2f}% artım)")
+
+                    tracker.update(symbol, "BUY", 0, buy_amount)
+                    last_buy_prices[symbol] = price
+                    notify(f"📈 BUY: {symbol} | {buy_amount} ({buy_usdt:.2f} USDT)")
                     log_trade(symbol, "BUY", buy_amount, price)
 
                     if 'info' in order and 'profit' in order['info']:
