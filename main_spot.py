@@ -131,7 +131,7 @@ def run():
                 free_usdt = balance['free'].get('USDT', 0)
                 token_balance = balance['free'].get(token_name, 0)
                 now = time.time()
-                                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
+                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
                     notify(f"⛔ {symbol}: 1h və 4h artım trendindədir, SATIŞ BLOKLANDI")
                     continue
 
