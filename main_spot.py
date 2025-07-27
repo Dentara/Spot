@@ -38,6 +38,8 @@ TOKENS = [
     "CFG/USDT", "LTO/USDT", "GT/USDT", "KAS/USDT", "XRD/USDT", "XRP/USDT"
 ]
 
+protected_tokens = ["TON/USDT", "GT/USDT", "ADA/USDT", "XRP/USDT"]
+
 manager = SpotManager()
 tracker = Tracker()
 last_buy_prices = {}
@@ -70,7 +72,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – Ağıllı alış-satış strategiyası ilə", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – Ağıllı balans və qoruma ilə", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -136,9 +138,10 @@ def run():
                         notify(f"⚠️ {symbol}: Token balansı çox azdır, satış keçildi", level="info")
                         continue
 
-                    if trend_1h != "buy" or trend_4h != "buy":
-                        notify(f"⛔ {symbol}: Trend artımda deyil, satış uyğun deyil", level="info")
-                        continue
+                    if symbol in protected_tokens:
+                        if trend_1h != "sell" or trend_4h != "sell":
+                            notify(f"🔒 {symbol}: Qorunan token – satış yalnız güclü düşüşdə mümkündür", level="info")
+                            continue
 
                     last_buy_price = last_buy_prices.get(symbol, 0)
                     profit_threshold = 0.02  # 2% mənfəət
@@ -164,13 +167,17 @@ def run():
                     continue
 
                 if decision == "BUY":
-                    buy_usdt = free_usdt * 0.15  # dinamik alış
+                    buy_usdt = free_usdt * 0.15
                     if trend_1h == "buy" and trend_4h == "buy":
                         buy_usdt = free_usdt * 0.3
                         notify(f"🚀 {symbol}: Güclü trend → alış sərbəstləşdirildi ({buy_usdt:.2f} USDT)", level="info")
 
                     if buy_usdt < 3:
                         notify(f"⚠️ {symbol}: Alış üçün vəsait çox azdır ({buy_usdt:.2f} USDT < 3)", level="info")
+                        continue
+
+                    if free_usdt < buy_usdt:
+                        notify(f"⛔ {symbol}: USDT yetərli deyil ({free_usdt:.2f} < {buy_usdt:.2f}) – ALIŞ BLOKLANDI", level="info")
                         continue
 
                     buy_amount = round(buy_usdt / price, 2)
