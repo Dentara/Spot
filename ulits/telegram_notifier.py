@@ -9,16 +9,19 @@ def send_telegram_message(text: str):
     global last_msg_time
     now = time.time()
 
-    # Telegram mesaj limiti (saniyədə max 1 mesaj)
+    # Rate-limit: saniyədə max 1 mesaj
     if now - last_msg_time < 1.1:
         time.sleep(1.1)
     last_msg_time = now
+
+    # Riskli simvolları əvəz et (Markdown təhlükəsizliyi üçün)
+    text = text.replace("<", "\\<").replace(">", "\\>")
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
         "text": text,
-        "parse_mode": "HTML"
+        "parse_mode": "Markdown"
     }
 
     try:
