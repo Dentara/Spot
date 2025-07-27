@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 
 PERF_PATH = "stats/performance.json"
 TOKEN_LOG_DIR = "stats/token_logs"
-os.makedirs(TOKEN_LOG_DIR, exist_ok=True)
+if not os.path.exists(TOKEN_LOG_DIR):
+    os.makedirs(TOKEN_LOG_DIR)
+elif not os.path.isdir(TOKEN_LOG_DIR):
+    os.remove(TOKEN_LOG_DIR)
+    os.makedirs(TOKEN_LOG_DIR)
 
 def update_daily_stats(symbol: str, side: str, success: bool, pnl: float):
     today = datetime.now(timezone.utc).date().isoformat()
