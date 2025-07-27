@@ -13,7 +13,7 @@ from ai.sentiment_analyzer import get_sentiment_score
 from ai.whale_detector import get_whale_alerts
 from ai.orderbook_analyzer import analyze_order_book_depth
 from ai.correlation_engine import get_related_tokens
-from ai.performance_logger import update_daily_stats  # ✅ STATİSTİKA
+from ai.performance_logger import update_daily_stats
 
 DEBUG_MODE = False
 
@@ -70,7 +70,7 @@ def log_trade(symbol, side, amount, price):
         notify(f"⚠️ Log yazıla bilmədi ({symbol}): {e}", level="debug")
 
 def run():
-    notify("✅ SPOT BOT AKTİVDİR – Tam 6 mərhələli sistem ilə", level="info")
+    notify("✅ SPOT BOT AKTİVDİR – Tam 6 mərhələli sistem + sərbəst alış ilə", level="info")
 
     while True:
         for symbol in TOKENS:
@@ -131,8 +131,7 @@ def run():
                 free_usdt = balance['free'].get('USDT', 0)
                 token_balance = balance['free'].get(token_name, 0)
                 now = time.time()
-
-                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
+                                if decision == "SELL" and (trend_1h == "buy" or trend_4h == "buy"):
                     notify(f"⛔ {symbol}: 1h və 4h artım trendindədir, SATIŞ BLOKLANDI")
                     continue
 
@@ -178,7 +177,12 @@ def run():
                         prev_token_qty = 0
                         prev_price = price
 
-                    if buy_usdt < 1:
+                    if trend_1h == "buy" and trend_4h == "buy":
+                        buy_usdt = free_usdt * 0.25
+                        notify(f"🚀 {symbol}: 1h və 4h trend 'BUY' → sərbəst alış aktivdir: {buy_usdt:.2f} USDT", level="info")
+
+                    if buy_usdt < 3:
+                        notify(f"⚠️ {symbol}: Alış üçün vəsait çox azdır ({buy_usdt:.2f} USDT < 3 USDT)", level="info")
                         continue
 
                     buy_amount = round(buy_usdt / price, 2)
