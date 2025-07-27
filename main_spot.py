@@ -200,4 +200,5 @@ def run():
 
         time.sleep(60)
 
-run()
+# run()  # SPOT botu müvəqqəti deaktiv edildi
+
